@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block main %}    
+<h1>Сайт: {{name}}</h1>
+
+    
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover text-nowrap" data-test="url">
+      <tbody>
+        <tr>
+          <td>ID</td>
+          <td>{{ id }}</td>
+        </tr>
+        <tr>
+          <td>Имя</td>
+          <td>{{ name }}</td>
+        </tr>
+        <tr>
+          <td>Дата создания</td>
+          <td>{{ created_at }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+    <h2 class="mt-5 mb-3">Проверки</h2>
+    <form method="post" action="/urls/{{ id }}/checks">
+    <input type="submit" class="btn btn-primary" value="Запустить проверку">
+    </form>
+    
+  <div>
+    <table class="table table-bordered table-hover mt-2" data-test="checks">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Код ответа</th>
+        <th>h1</th>
+        <th>title</th>
+        <th>description</th>
+        <th>Дата создания</th>
+      </tr>
+    </thead>
+      <tbody>
+    {% if checks %}
+      {% for check in checks[-1::-1] %}
+      <tr>
+        <td>{{ check[0] }}</td>
+        <td>{{ check[1] }}</td>
+        <td>{{ check[2] }}</td>
+        <td>{{ check[3] }}</td>
+        <td>{{ check[4] }}</td>
+        <td>{{ check[5].date() }}</td>
+      </tr>
+      {% endfor %}
+    {% endif %}
+    </tbody>
+    </table>
+  </div>
+{% endblock %}
