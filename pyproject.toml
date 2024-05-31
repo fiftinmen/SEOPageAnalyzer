@@ -1,9 +1,13 @@
 [tool.poetry]
 name = "hexlet-code"
-version = "0.3.0"
-description = ""
+version = "0.1.0"
+description = "Simple tool to analyze validity and accessability for pages by its urls."
 authors = ["skip"]
 readme = "README.md"
+classifiers = [
+    "Topic :: Internet :: WWW/HTTP :: Site Management :: Link Checking"
+]
+repository = "https://github.com/fiftinmen/python-project-83"
 packages = [
 { include = "page_analyzer"},
 ]
@@ -18,8 +22,6 @@ beautifulsoup4 = "^4.12.3"
 requests = "^2.32.3"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.2"
-pytest-cov = "^4.1.0"
 flake8 = "^6.1.0"
 
 [build-system]
