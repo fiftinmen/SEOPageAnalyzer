@@ -109,7 +109,7 @@ def add_url():
     messages = get_flashed_messages(with_categories=True)
     return render_template(
         'index.html',
-        messages=messages)
+        messages=messages), 422
 
 
 def get_checks_data(url_id):
