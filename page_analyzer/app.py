@@ -5,8 +5,6 @@ from flask import (
     flash,
     get_flashed_messages,
     redirect,
-    jsonify
-    # make_response
 )
 from bs4 import BeautifulSoup
 from requests import (
@@ -179,7 +177,8 @@ def show_urls_list():
                         'id': rec[0],
                         'name': rec[1],
                         'status_code': rec[2] or '',
-                        'last_check_date': rec[3].date() if rec[3] is not None else ''
+                        'last_check_date': rec[3].date() if rec[3]
+                        is not None else ''
                     }
                     for rec in cursor.fetchall()
                 ]
