@@ -19,5 +19,8 @@ selfcheck:
 
 check: selfcheck lint
 
+install:
+	poetry install
+
 remove-envs:
 	rm -rf .venv && poetry env remove --all
