@@ -20,6 +20,7 @@ python-dotenv = "^1.0.1"
 psycopg2-binary = "^2.9.9"
 beautifulsoup4 = "^4.12.3"
 requests = "^2.32.3"
+validators = "^0.28.3"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.1.0"
