@@ -215,6 +215,7 @@ def check_url(url_id):
             title,
             description))
         g.db.commit()
+        flash('Страница успешно проверена', 'success')
     except HTTPError:
         flash('Произошла ошибка при проверке', 'danger')
     return redirect(f'/urls/{url_id}', 302)
