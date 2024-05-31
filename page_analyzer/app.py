@@ -29,15 +29,15 @@ if not DATABASE_URL:
 
 
 def get_cursor():
-    if 'db' not in g:
+    if 'conn' not in g:
         try:
             app.config['postgreSQL_pool'] = psycopg2.connect(DATABASE_URL)
 
         except (Exception, psycopg2.DatabaseError) as error:
             print(f"Error while connecting to PostgreSQL: {error}")
             raise
-        g.db = app.config['postgreSQL_pool']
-    return g.db.cursor()
+        g.conn = app.config['postgreSQL_pool']
+    return g.conn.cursor()
 
 
 app.secret_key = 'super secret key'
@@ -49,7 +49,6 @@ MESSAGES = {
 
 
 def get_url_data_by_field(field, value):
-    # Получение соединения из пула
     cursor = get_cursor()
     cursor.execute(f"""
     SELECT * FROM urls
@@ -87,7 +86,6 @@ def handle_url(url):
 @app.route('/')
 def index():
     messages = get_flashed_messages(with_categories=True)
-    print(3)
     return render_template(
         'index.html',
         messages=messages)
@@ -104,11 +102,14 @@ def add_url():
         INSERT INTO urls (name, created_at)
         VALUES (%s, NOW())
         """, (url,))
-        g.db.commit()
+        g.conn.commit()
     if result in {'success', 'warning'}:
         url_id = get_url_data_by_field('name', url)[0]
         return redirect(f'urls/{url_id}', 302)
-    return redirect('/', 302)
+    messages = get_flashed_messages(with_categories=True)
+    return render_template(
+        'index.html',
+        messages=messages)
 
 
 def get_checks_data(url_id):
@@ -214,7 +215,7 @@ def check_url(url_id):
             h1,
             title,
             description))
-        g.db.commit()
+        g.conn.commit()
         flash('Страница успешно проверена', 'success')
     except HTTPError:
         flash('Произошла ошибка при проверке', 'danger')
@@ -222,7 +223,8 @@ def check_url(url_id):
 
 
 @app.teardown_appcontext
-def close_db(error):
-    db = g.pop('db', None)
-    if db is not None:
+def close_conn(error):
+    conn = g.pop('conn', None)
+    if conn is not None:
         app.config['postgreSQL_pool'].close()
+    print(error)
