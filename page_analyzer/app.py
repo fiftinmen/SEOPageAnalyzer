@@ -5,226 +5,118 @@ from flask import (
     flash,
     get_flashed_messages,
     redirect,
-    g,
 )
+import os
 import validators
 from bs4 import BeautifulSoup
-from requests import (
-    get,
-    HTTPError
-)
-import psycopg2
-import os
-from dotenv import load_dotenv
+from requests import get
+from requests.exceptions import RequestException
 from urllib.parse import urlparse
+import page_analyzer.db as db
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-load_dotenv()
-
-DATABASE_URL = os.getenv('DATABASE_URL')
-
-if not DATABASE_URL:
-    raise ValueError("No DATABASE_URL set for Flask application")
-
-
-def get_cursor():
-    if 'conn' not in g:
-        try:
-            app.config['postgreSQL_pool'] = psycopg2.connect(DATABASE_URL)
-
-        except (Exception, psycopg2.DatabaseError) as error:
-            print(f"Error while connecting to PostgreSQL: {error}")
-            raise
-        g.conn = app.config['postgreSQL_pool']
-    return g.conn.cursor()
-
-
-app.secret_key = 'super secret key'
-MESSAGES = {
+ADD_URL_MESSAGES = {
     "success": "Страница успешно добавлена",
     "warning": "Страница уже существует",
     "danger": "Некорректный URL"
 }
-
-
-def get_url_data_by_field(field, value):
-    cursor = get_cursor()
-    cursor.execute(f"""
-    SELECT * FROM urls
-    WHERE {field} = %s
-    """, (value,))
-    return cursor.fetchone() or ['']
+CHECK_URL_MESSAGES = {
+    "success": "Страница успешно проверена",
+    "danger": "Произошла ошибка при проверке"
+}
+MAX_LENGTH = 255
 
 
 def parse_page(page):
     soup = BeautifulSoup(page, 'html.parser')
     description = ''
-    h1 = str(soup.h1.text)[:255] if soup.h1 else ''
-    title = str(soup.title.text)[:255] if soup.title else ''
+    h1 = str(soup.h1.text)[:MAX_LENGTH] if soup.h1 else ''
+    title = str(soup.title.text)[:MAX_LENGTH] if soup.title else ''
     for tag in soup.find_all("meta"):
         tag_name = tag.get('name', '').lower()
         if tag_name == 'description':
-            description = tag.get('content', '')[:255]
+            description = tag.get('content', '')[:MAX_LENGTH]
             break
     return h1, title, description
 
 
-def handle_url(url):
+def normalize_url(url):
     url_parts = urlparse(url)
-    url = f"{url_parts.scheme}://{url_parts.netloc}"
+    return f"{url_parts.scheme}://{url_parts.netloc}"
+
+
+'''
+def handle_url(url):
     if not validators.url(url):
-        return url, MESSAGES['danger'], "danger"
-    try:
-        if url not in get_url_data_by_field('name', url):
-            return url, MESSAGES['success'], "success"
-    except TypeError as e:
-        return ' '.join([url, *e.args]), "danger"
-    return url, MESSAGES['warning'], "warning"
+        return ADD_URL_MESSAGES['danger'], "danger"
+    if url not in db.get_url_data_by_field('name', url):
+        return ADD_URL_MESSAGES['success'], "success"
+    return ADD_URL_MESSAGES['warning'], "warning"
+'''
 
 
 @app.route('/')
 def index():
-    messages = get_flashed_messages(with_categories=True)
     return render_template(
         'index.html',
-        messages=messages)
+        messages=get_flashed_messages(with_categories=True))
 
 
 @app.post('/urls')
 def add_url():
     url = request.form.to_dict().get('url')
-    url, message, result = handle_url(url)
-    flash(message, result)
-    if result == 'success':
-        cursor = get_cursor()
-        cursor.execute("""
-        INSERT INTO urls (name, created_at)
-        VALUES (%s, NOW())
-        """, (url,))
-        g.conn.commit()
-    if result in {'success', 'warning'}:
-        url_id = get_url_data_by_field('name', url)[0]
+    url = normalize_url(url)
+    if not validators.url(url):
+        flash(ADD_URL_MESSAGES['danger'], "danger")
+    else:
+        data = db.get_url_data_by_field('name', url)
+        if url in data:
+            flash(ADD_URL_MESSAGES['success'], 'success')
+            db.insert_url(url)
+        else:
+            flash(ADD_URL_MESSAGES['warning'], 'warning')
+        url_id = db.get_url_data_by_field('name', url)[0]
         return redirect(f'urls/{url_id}', 302)
-    messages = get_flashed_messages(with_categories=True)
     return render_template(
         'index.html',
-        messages=messages), 422
-
-
-def get_checks_data(url_id):
-    cursor = get_cursor()
-    cursor.execute(
-        """
-        SELECT
-            id,
-            status_code,
-            h1,
-            title,
-            description,
-            created_at FROM url_checks
-        WHERE url_id = %s
-        """,
-        (int(url_id),)
-    )
-    if cursor:
-        return cursor.fetchall()
+        messages=get_flashed_messages(with_categories=True)
+    ), 422
 
 
 @app.get('/urls')
 def show_urls_list():
-    messages = get_flashed_messages(with_categories=True)
-    urls = None
-    cursor = get_cursor()
-    cursor.execute(
-        """
-        WITH url_last_checks(url_id, status_code, created_at) AS (
-            SELECT
-                url_checks.url_id as url_id,
-                url_checks.status_code as status_code,
-                url_checks.created_at as created_at
-            FROM url_checks
-            LEFT JOIN urls
-                ON url_checks.url_id = urls.id
-            ORDER BY url_checks.created_at DESC
-            LIMIT 1
-        )
-        SELECT
-            urls.id as id,
-            urls.name as name,
-            url_last_checks.status_code as status_code,
-            url_last_checks.created_at as created_at
-            FROM urls
-        LEFT JOIN url_last_checks
-        ON urls.id = url_last_checks.url_id
-        """
-    )
-    if cursor:
-        urls = [
-            {
-                'id': rec[0],
-                'name': rec[1],
-                'status_code': rec[2] or '',
-                'last_check_date': rec[3].date() if rec[3]
-                is not None else ''
-            }
-            for rec in cursor.fetchall()
-        ]
     return render_template(
         'urls.html',
-        messages=messages,
-        urls=urls
+        messages=get_flashed_messages(with_categories=True),
+        urls=db.get_urls_list()
     )
 
 
 @app.get('/urls/<url_id>')
 def show_url_data(url_id):
-    url_data = get_url_data_by_field('id', url_id)
-    checks = get_checks_data(url_id)
-    messages = get_flashed_messages(with_categories=True)
+    url_data = db.get_url_data_by_field('id', url_id)
     return render_template(
         'url.html',
-        messages=messages,
+        messages=get_flashed_messages(with_categories=True),
         id=url_id,
         name=url_data[1],
         created_at=url_data[2].date(),
-        checks=checks
+        checks=db.get_checks_data(url_id)
     )
 
 
 @app.post('/urls/<url_id>/checks')
 def check_url(url_id):
-    url = get_url_data_by_field('id', url_id)[1]
+    data = db.get_url_data_by_field('id', url_id)
     try:
+        url = data[1]
         response = get(url)
         response.raise_for_status()
         h1, title, description = parse_page(response.text)
-        cursor = get_cursor()
-        cursor.execute("""
-        INSERT INTO url_checks (
-            url_id,
-            status_code,
-            h1,
-            title,
-            description,
-            created_at)
-        VALUES (%s, %s, %s, %s, %s, NOW())
-        """, (
-            url_id,
-            response.status_code,
-            h1,
-            title,
-            description))
-        g.conn.commit()
-        flash('Страница успешно проверена', 'success')
-    except HTTPError:
-        flash('Произошла ошибка при проверке', 'danger')
+        db.insert_check(url_id, response.status_code, h1, title, description)
+        flash(CHECK_URL_MESSAGES['success'], 'success')
+    except RequestException:
+        flash(CHECK_URL_MESSAGES['danger'], 'danger')
     return redirect(f'/urls/{url_id}', 302)
-
-
-@app.teardown_appcontext
-def close_conn(error):
-    conn = g.pop('conn', None)
-    if conn is not None:
-        app.config['postgreSQL_pool'].close()
-    print(error)
