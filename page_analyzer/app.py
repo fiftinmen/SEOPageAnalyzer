@@ -47,16 +47,6 @@ def normalize_url(url):
     return f"{url_parts.scheme}://{url_parts.netloc}"
 
 
-'''
-def handle_url(url):
-    if not validators.url(url):
-        return ADD_URL_MESSAGES['danger'], "danger"
-    if url not in db.get_url_data_by_field('name', url):
-        return ADD_URL_MESSAGES['success'], "success"
-    return ADD_URL_MESSAGES['warning'], "warning"
-'''
-
-
 @app.route('/')
 def index():
     return render_template(
