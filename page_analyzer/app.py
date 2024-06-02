@@ -62,7 +62,7 @@ def add_url():
         flash(ADD_URL_MESSAGES['danger'], "danger")
     else:
         data = db.get_url_data_by_field('name', url)
-        if url in data:
+        if url not in data:
             flash(ADD_URL_MESSAGES['success'], 'success')
             db.insert_url(url)
         else:
