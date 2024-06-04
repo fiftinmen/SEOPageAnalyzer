@@ -75,25 +75,28 @@ def insert_check(url_id, status_code, h1, title, description):
 def get_urls_list():
     if result := execute(
         """
-        WITH url_last_checks(url_id, created_at) AS (
+        WITH url_last_checks(id, url_id, status_code, created_at) AS (
+            SELECT id, url_id, status_code, created_at FROM (
             SELECT
-                url_checks.url_id as url_id,
-                MAX(url_checks.created_at) as created_at
-            FROM url_checks
-            LEFT JOIN urls
-                ON url_checks.url_id = urls.id
-            GROUP BY url_checks.url_id
+                id,
+                url_id,
+                status_code,
+                created_at,
+                ROW_NUMBER() OVER (
+                    PARTITION BY url_id
+                    ORDER BY created_at DESC
+                ) as r_n
+            FROM url_checks) t
+            WHERE t.r_n = 1
         )
         SELECT
             urls.id as id,
             urls.name as name,
-            url_checks.status_code as status_code,
+            url_last_checks.status_code as status_code,
             url_last_checks.created_at as created_at
             FROM urls
         LEFT JOIN url_last_checks
         ON urls.id = url_last_checks.url_id
-        LEFT JOIN url_checks
-        ON url_last_checks.url_id = url_checks.id
         """
     ):
         urls = [
