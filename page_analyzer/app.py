@@ -77,6 +77,7 @@ def add_url():
 
 @app.get('/urls')
 def show_urls_list():
+    print(db.get_urls_list())
     return render_template(
         'urls.html',
         messages=get_flashed_messages(with_categories=True),
