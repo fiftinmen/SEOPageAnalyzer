@@ -100,7 +100,8 @@ def get_urls_list():
             {
                 'id': rec[0],
                 'name': rec[1],
-                'status_code': rec[2] or '',
+                'status_code': rec[2] if rec[2]
+                is not None else '',
                 'last_check_date': rec[3].date() if rec[3]
                 is not None else ''
             }
