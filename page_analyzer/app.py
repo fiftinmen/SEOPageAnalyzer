@@ -77,11 +77,12 @@ def add_url():
 
 @app.get('/urls')
 def show_urls_list():
-    print(db.get_urls_list())
+    checks = db.execute('select * from url_checks');
     return render_template(
         'urls.html',
         messages=get_flashed_messages(with_categories=True),
-        urls=db.get_urls_list()
+        urls=db.get_urls_list(),
+        checks=checks
     )
 
 

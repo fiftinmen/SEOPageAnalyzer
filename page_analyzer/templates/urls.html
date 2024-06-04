@@ -14,13 +14,14 @@
     </tr>
     </thead>
     <tbody>
+      {{ checks }}
       {% if urls %}
         {% for url in urls[-1::-1] %}
           <tr>
             <td>{{ url['id'] }}</td>
             <td><a href="/urls/{{ url['id'] }}">{{ url['name'] }}</a></td>
             <td>{{ url['last_check_date'] }}</td>
-            <td>{{ url }}</td>
+            <td>{{ url['status_code'] }}</td>
           </tr>
           {% endfor %}
         {% endif %}
