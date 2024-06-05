@@ -5,17 +5,27 @@ from flask import (
     flash,
     get_flashed_messages,
     redirect,
+    url_for
 )
+import atexit
 import os
 import validators
-from bs4 import BeautifulSoup
 from requests import get
 from requests.exceptions import RequestException
-from urllib.parse import urlparse
 import page_analyzer.db as db
+from dotenv import load_dotenv
+from page_analyzer.tools import parse_page, normalize_url
 
+
+load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if not DATABASE_URL:
+    raise ValueError("No DATABASE_URL set for Flask application")
+conn = db.get_connection(DATABASE_URL)
+atexit.register(db.close_connection, conn)
 
 ADD_URL_MESSAGES = {
     "success": "Страница успешно добавлена",
@@ -26,25 +36,6 @@ CHECK_URL_MESSAGES = {
     "success": "Страница успешно проверена",
     "danger": "Произошла ошибка при проверке"
 }
-MAX_LENGTH = 255
-
-
-def parse_page(page):
-    soup = BeautifulSoup(page, 'html.parser')
-    description = ''
-    h1 = str(soup.h1.text)[:MAX_LENGTH] if soup.h1 else ''
-    title = str(soup.title.text)[:MAX_LENGTH] if soup.title else ''
-    for tag in soup.find_all("meta"):
-        tag_name = tag.get('name', '').lower()
-        if tag_name == 'description':
-            description = tag.get('content', '')[:MAX_LENGTH]
-            break
-    return h1, title, description
-
-
-def normalize_url(url):
-    url_parts = urlparse(url)
-    return f"{url_parts.scheme}://{url_parts.netloc}"
 
 
 @app.route('/')
@@ -61,17 +52,16 @@ def add_url():
     if not validators.url(url):
         flash(ADD_URL_MESSAGES['danger'], "danger")
     else:
-        data = db.get_url_data_by_field('name', url)
+        data = db.get_url_data_by_name(conn, url)
         if url not in data:
             flash(ADD_URL_MESSAGES['success'], 'success')
-            db.insert_url(url)
+            db.insert_url(conn, url)
         else:
             flash(ADD_URL_MESSAGES['warning'], 'warning')
-        url_id = db.get_url_data_by_field('name', url)[0]
-        return redirect(f'urls/{url_id}', 302)
+        url_id = db.get_url_data_by_name(conn, url)[0]
+        return redirect(url_for('show_url_data', url_id=url_id), 302)
     return render_template(
         'index.html',
-        messages=get_flashed_messages(with_categories=True)
     ), 422
 
 
@@ -79,34 +69,42 @@ def add_url():
 def show_urls_list():
     return render_template(
         'urls.html',
-        messages=get_flashed_messages(with_categories=True),
-        urls=db.get_urls_list(),
+        urls=db.get_urls_list(conn),
     )
 
 
 @app.get('/urls/<url_id>')
 def show_url_data(url_id):
-    url_data = db.get_url_data_by_field('id', url_id)
+    url_data = db.get_url_data_by_id(conn, url_id)
+    print(url_data)
     return render_template(
         'url.html',
-        messages=get_flashed_messages(with_categories=True),
         id=url_id,
         name=url_data[1],
         created_at=url_data[2].date(),
-        checks=db.get_checks_data(url_id)
+        checks=db.get_checks_data(conn, url_id)
     )
 
 
 @app.post('/urls/<url_id>/checks')
 def check_url(url_id):
-    data = db.get_url_data_by_field('id', url_id)
+    data = db.get_url_data_by_id(conn, url_id)
     try:
         url = data[1]
         response = get(url)
         response.raise_for_status()
         h1, title, description = parse_page(response.text)
-        db.insert_check(url_id, response.status_code, h1, title, description)
+        db.insert_check_data(
+            conn,
+            {
+                'url_id': url_id,
+                'status_code': response.status_code,
+                'h1': h1,
+                'title': title,
+                'description': description
+            }
+        )
         flash(CHECK_URL_MESSAGES['success'], 'success')
     except RequestException:
         flash(CHECK_URL_MESSAGES['danger'], 'danger')
-    return redirect(f'/urls/{url_id}', 302)
+    return redirect(url_for('show_url_data', url_id=url_id), 302)
