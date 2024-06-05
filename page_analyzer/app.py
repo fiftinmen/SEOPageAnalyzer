@@ -7,7 +7,6 @@ from flask import (
     redirect,
     url_for
 )
-import atexit
 import os
 import validators
 from requests import get

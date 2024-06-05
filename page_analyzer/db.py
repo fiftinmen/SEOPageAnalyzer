@@ -3,17 +3,26 @@ from psycopg2.extensions import STATUS_BEGIN
 
 
 def get_connection(db_url):
-    return psycopg2.connect(db_url)
+    conn = None
+
+    def inner():
+        nonlocal conn
+        if conn is None:
+            conn = psycopg2.connect(db_url)
+        elif conn.closed:
+            conn = psycopg2.connect(db_url)
+        return conn
+    return inner
 
 
 def close_connection(conn):
-    conn.close()
+    conn().close()
 
 
 def execute(conn, query, *args):
-    if conn.status == STATUS_BEGIN:
-        conn.rollback()
-    with conn.cursor() as cursor:
+    if conn().status == STATUS_BEGIN:
+        conn().rollback()
+    with conn().cursor() as cursor:
         cursor.execute(
             query,
             (*args,)
@@ -61,6 +70,7 @@ def insert_url(conn, url):
     INSERT INTO urls (name, created_at)
     VALUES (%s, NOW())
     """, url)
+    conn().commit()
 
 
 def insert_check_data(conn, check_data):
@@ -82,6 +92,7 @@ def insert_check_data(conn, check_data):
         check_data['title'],
         check_data['description']
     )
+    conn().commit()
 
 
 def get_urls_list(conn):
