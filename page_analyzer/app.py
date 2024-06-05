@@ -25,7 +25,7 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 if not DATABASE_URL:
     raise ValueError("No DATABASE_URL set for Flask application")
 conn = db.get_connection(DATABASE_URL)
-atexit.register(db.close_connection, conn)
+
 
 ADD_URL_MESSAGES = {
     "success": "Страница успешно добавлена",
