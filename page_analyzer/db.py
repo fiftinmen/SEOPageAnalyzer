@@ -3,7 +3,13 @@ from psycopg2.extensions import STATUS_BEGIN
 
 
 def get_connection(db_url):
-    conn = psycopg2.connect(db_url)
+    keepalive_kwargs = {
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 5,
+        "keepalives_count": 5,
+    }
+    conn = psycopg2.connect(db_url, **keepalive_kwargs)
     return conn
 
 
