@@ -3,12 +3,10 @@ from flask import (
     Flask,
     request,
     flash,
-    get_flashed_messages,
     redirect,
     url_for
 )
 import os
-import atexit
 import validators
 from requests import get
 from requests.exceptions import RequestException
@@ -24,8 +22,6 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 
 if not DATABASE_URL:
     raise ValueError("No DATABASE_URL set for Flask application")
-conn = db.get_connection(DATABASE_URL)
-atexit.register(db.close_connection, conn)
 
 ADD_URL_MESSAGES = {
     "success": "Страница успешно добавлена",
@@ -42,51 +38,60 @@ CHECK_URL_MESSAGES = {
 def index():
     return render_template(
         'index.html',
-        messages=get_flashed_messages(with_categories=True))
+    )
 
 
 @app.post('/urls')
 def add_url():
+    conn = db.get_connection(DATABASE_URL)
     url = request.form.to_dict().get('url')
     url = normalize_url(url)
     if not validators.url(url):
         flash(ADD_URL_MESSAGES['danger'], "danger")
+        db.close_connection(conn)
+        return render_template(
+            'index.html',
+        ), 422
+    data = db.get_url_data_by_name(conn, url)
+    if url not in data:
+        flash(ADD_URL_MESSAGES['success'], 'success')
+        db.insert_url(conn, url)
     else:
-        data = db.get_url_data_by_name(conn, url)
-        if url not in data:
-            flash(ADD_URL_MESSAGES['success'], 'success')
-            db.insert_url(conn, url)
-        else:
-            flash(ADD_URL_MESSAGES['warning'], 'warning')
-        url_id = db.get_url_data_by_name(conn, url)[0]
-        return redirect(url_for('show_url_data', url_id=url_id), 302)
-    return render_template(
-        'index.html',
-    ), 422
+        flash(ADD_URL_MESSAGES['warning'], 'warning')
+    url_id = db.get_url_data_by_name(conn, url)[0]
+    db.close_connection(conn)
+    return redirect(url_for('show_url_data', url_id=url_id), 302)
 
 
 @app.get('/urls')
 def show_urls_list():
+    conn = db.get_connection(DATABASE_URL)
+    urls_list = db.get_urls_list(conn)
+    db.close_connection(conn)
     return render_template(
         'urls.html',
-        urls=db.get_urls_list(conn),
+        urls=urls_list,
     )
 
 
 @app.get('/urls/<url_id>')
 def show_url_data(url_id):
+    conn = db.get_connection(DATABASE_URL)
     url_data = db.get_url_data_by_id(conn, url_id)
+    checks = db.get_checks_data(conn, url_id)
+    db.close_connection(conn)
     return render_template(
         'url.html',
         id=url_id,
         name=url_data[1],
         created_at=url_data[2].date(),
-        checks=db.get_checks_data(conn, url_id)
+        checks=checks,
     )
 
 
 @app.post('/urls/<url_id>/checks')
 def check_url(url_id):
+    conn = db.get_connection(DATABASE_URL)
     data = db.get_url_data_by_id(conn, url_id)
     try:
         url = data[1]
@@ -106,4 +111,5 @@ def check_url(url_id):
         flash(CHECK_URL_MESSAGES['success'], 'success')
     except RequestException:
         flash(CHECK_URL_MESSAGES['danger'], 'danger')
+    db.close_connection(conn)
     return redirect(url_for('show_url_data', url_id=url_id), 302)
