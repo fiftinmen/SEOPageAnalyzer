@@ -3,14 +3,7 @@ from psycopg2.extensions import STATUS_BEGIN
 
 
 def get_connection(db_url):
-    keepalive_kwargs = {
-        "keepalives": 1,
-        "keepalives_idle": 30,
-        "keepalives_interval": 5,
-        "keepalives_count": 5,
-    }
-    conn = psycopg2.connect(db_url, **keepalive_kwargs)
-    return conn
+    return psycopg2.connect(db_url)
 
 
 def close_connection(conn):
@@ -68,7 +61,6 @@ def insert_url(conn, url):
     INSERT INTO urls (name, created_at)
     VALUES (%s, NOW())
     """, url)
-    conn.commit()
 
 
 def insert_check_data(conn, check_data):
@@ -90,7 +82,6 @@ def insert_check_data(conn, check_data):
         check_data['title'],
         check_data['description']
     )
-    conn.commit()
 
 
 def get_urls_list(conn):
