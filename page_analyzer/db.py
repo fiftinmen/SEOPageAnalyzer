@@ -1,5 +1,9 @@
 import psycopg2
-from psycopg2.extensions import STATUS_BEGIN
+import psycopg2.extras
+
+
+def commit(conn):
+    conn.commit()
 
 
 def get_connection(db_url):
@@ -11,118 +15,123 @@ def close_connection(conn):
 
 
 def execute(conn, query, *args):
-    if conn.status == STATUS_BEGIN:
-        conn.rollback()
-    with conn.cursor() as cursor:
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute(
             query,
             (*args,)
         )
-        return cursor.fetchall() if cursor.description is not None else None
+        return cursor.fetchall() if cursor.rowcount > 0 else None
 
 
-def get_checks_data(conn, url_id):
-    return execute(
-        conn,
-        """
-        SELECT
-            id,
-            status_code,
-            h1,
-            title,
-            description,
-            created_at FROM url_checks
-        WHERE url_id = %s
-        """,
-        int(url_id)
-    )
+def get_url_checks(conn, url_id):
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                status_code,
+                h1,
+                title,
+                description,
+                created_at FROM url_checks
+            WHERE url_id = %s
+            """,
+            (int(url_id),)
+        )
+        return cursor.fetchall()
 
 
 def get_url_data_by_name(conn, value):
-    if data := execute(conn, """
-    SELECT * FROM urls
-    WHERE name = %s
-    """, value):
-        return data[0]
-    return ['']
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
+        cursor.execute(
+            """
+            SELECT * FROM urls
+            WHERE name = %s
+            """,
+            (value,)
+        )
+        return cursor.fetchone() if cursor.rowcount > 0 else ['']
 
 
 def get_url_data_by_id(conn, value):
-    if data := execute(conn, """
-    SELECT * FROM urls
-    WHERE id = %s
-    """, value):
-        return data[0]
-    return ['']
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
+        cursor.execute(
+            """
+            SELECT * FROM urls
+            WHERE id = %s
+            """,
+            (value,)
+        )
+        return cursor.fetchone() if cursor.rowcount > 0 else ['']
 
 
 def insert_url(conn, url):
-    execute(conn, """
-    INSERT INTO urls (name, created_at)
-    VALUES (%s, NOW())
-    """, url)
-    conn.commit()
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
+        cursor.execute(
+            """
+            INSERT INTO urls (name, created_at)
+            VALUES (%s, NOW())
+            """, (url,))
 
 
 def insert_check_data(conn, check_data):
-    execute(
-        conn,
-        """
-        INSERT INTO url_checks (
-            url_id,
-            status_code,
-            h1,
-            title,
-            description,
-            created_at)
-        VALUES (%s, %s, %s, %s, %s, NOW())
-        """,
-        check_data['url_id'],
-        check_data['status_code'],
-        check_data['h1'],
-        check_data['title'],
-        check_data['description']
-    )
-    conn.commit()
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
+        cursor.execute(
+            """
+            INSERT INTO url_checks (
+                url_id,
+                status_code,
+                h1,
+                title,
+                description,
+                created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            """,
+            (check_data['url_id'],
+             check_data['status_code'],
+             check_data['h1'],
+             check_data['title'],
+             check_data['description'])
+        )
 
 
 def get_urls_list(conn):
-    if result := execute(
-        conn,
-        """
-        WITH url_last_checks(id, url_id, status_code, created_at) AS (
-            SELECT id, url_id, status_code, created_at FROM (
+    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
+        cursor.execute(
+            """
             SELECT
-                id,
-                url_id,
-                status_code,
-                created_at,
-                ROW_NUMBER() OVER (
-                    PARTITION BY url_id
-                    ORDER BY created_at DESC
-                ) as r_n
-            FROM url_checks) t
-            WHERE t.r_n = 1
+                urls.id as url_id,
+                urls.name as name,
+                url_checks.status_code as status_code,
+                url_checks.created_at as created_at
+                FROM urls
+            LEFT JOIN url_checks
+            ON urls.id = url_checks.url_id
+            """
         )
-        SELECT
-            urls.id as id,
-            urls.name as name,
-            url_last_checks.status_code as status_code,
-            url_last_checks.created_at as created_at
-            FROM urls
-        LEFT JOIN url_last_checks
-        ON urls.id = url_last_checks.url_id
-        """
-    ):
-        urls = [
+        if cursor.rowcount < 1:
+            return
+        checks = cursor.fetchall()
+        url_ids = {check.url_id for check in checks}
+        last_checks = []
+        for url_id in url_ids:
+            checks_by_url_id = [
+                rec for rec in checks
+                if rec.url_id == url_id
+            ]
+            last_checks_by_url_id = max(
+                checks_by_url_id, key=lambda check: check.created_at
+            )
+            last_checks.append(last_checks_by_url_id)
+        urls_list = [
             {
-                'id': rec[0],
-                'name': rec[1],
-                'status_code': rec[2] if rec[2]
+                'id': rec.url_id,
+                'name': rec.name,
+                'status_code': rec.status_code if rec.status_code
                 is not None else '',
-                'last_check_date': rec[3].date() if rec[3]
+                'last_check_date': rec.created_at.date() if rec.created_at
                 is not None else ''
             }
-            for rec in result
+            for rec in last_checks
         ]
-        return urls
+        return urls_list

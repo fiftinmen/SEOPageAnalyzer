@@ -56,9 +56,10 @@ def add_url():
     if url not in data:
         flash(ADD_URL_MESSAGES['success'], 'success')
         db.insert_url(conn, url)
+        db.commit(conn)
     else:
         flash(ADD_URL_MESSAGES['warning'], 'warning')
-    url_id = db.get_url_data_by_name(conn, url)[0]
+    url_id = db.get_url_data_by_name(conn, url).id
     db.close_connection(conn)
     return redirect(url_for('show_url_data', url_id=url_id), 302)
 
@@ -78,13 +79,13 @@ def show_urls_list():
 def show_url_data(url_id):
     conn = db.get_connection(DATABASE_URL)
     url_data = db.get_url_data_by_id(conn, url_id)
-    checks = db.get_checks_data(conn, url_id)
+    checks = db.get_url_checks(conn, url_id)
     db.close_connection(conn)
     return render_template(
         'url.html',
         id=url_id,
-        name=url_data[1],
-        created_at=url_data[2].date(),
+        name=url_data.name,
+        created_at=url_data.created_at.date(),
         checks=checks,
     )
 
@@ -94,7 +95,7 @@ def check_url(url_id):
     conn = db.get_connection(DATABASE_URL)
     data = db.get_url_data_by_id(conn, url_id)
     try:
-        url = data[1]
+        url = data.name
         response = get(url)
         response.raise_for_status()
         h1, title, description = parse_page(response.text)
@@ -108,6 +109,7 @@ def check_url(url_id):
                 'description': description
             }
         )
+        db.commit(conn)
         flash(CHECK_URL_MESSAGES['success'], 'success')
     except RequestException:
         flash(CHECK_URL_MESSAGES['danger'], 'danger')
