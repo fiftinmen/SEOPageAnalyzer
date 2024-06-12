@@ -41,7 +41,7 @@ def get_url_checks(conn, url_id):
         return cursor.fetchall()
 
 
-def get_url_data_by_name(conn, value):
+def get_url_by_name(conn, value):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute(
             """
@@ -50,10 +50,10 @@ def get_url_data_by_name(conn, value):
             """,
             (value,)
         )
-        return cursor.fetchone() if cursor.rowcount > 0 else ['']
+        return cursor.fetchone() if cursor.rowcount > 0 else None
 
 
-def get_url_data_by_id(conn, value):
+def get_url_by_id(conn, value):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute(
             """
@@ -74,7 +74,7 @@ def insert_url(conn, url):
             """, (url,))
 
 
-def insert_check_data(conn, check_data):
+def insert_url_check(conn, url_check):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute(
             """
@@ -87,15 +87,15 @@ def insert_check_data(conn, check_data):
                 created_at)
             VALUES (%s, %s, %s, %s, %s, NOW())
             """,
-            (check_data['url_id'],
-             check_data['status_code'],
-             check_data['h1'],
-             check_data['title'],
-             check_data['description'])
+            (url_check['url_id'],
+             url_check['status_code'],
+             url_check['h1'],
+             url_check['title'],
+             url_check['description'])
         )
 
 
-def get_urls_list(conn):
+def get_urls(conn):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute(
             """
@@ -123,7 +123,7 @@ def get_urls_list(conn):
                 checks_by_url_id, key=lambda check: check.created_at
             )
             last_checks.append(last_checks_by_url_id)
-        urls_list = [
+        urls = [
             {
                 'id': rec.url_id,
                 'name': rec.name,
@@ -134,4 +134,4 @@ def get_urls_list(conn):
             }
             for rec in last_checks
         ]
-        return urls_list
+        return urls

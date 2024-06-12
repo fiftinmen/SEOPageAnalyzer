@@ -18,7 +18,7 @@
         {% for url in urls[-1::-1] %}
           <tr>
             <td>{{ url['id'] }}</td>
-            <td><a href="{{ url_for('show_url_data', url_id=url['id']) }}">{{ url['name'] }}</a></td>
+            <td><a href="{{ url_for('show_url', url_id=url['id']) }}">{{ url['name'] }}</a></td>
             <td>{{ url['last_check_date'] }}</td>
             <td>{{ url['status_code'] }}</td>
           </tr>

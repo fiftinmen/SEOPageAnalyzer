@@ -8,7 +8,7 @@ from flask import (
 )
 import os
 import validators
-from requests import get
+import requests
 from requests.exceptions import RequestException
 import page_analyzer.db as db
 from dotenv import load_dotenv
@@ -52,40 +52,39 @@ def add_url():
         return render_template(
             'index.html',
         ), 422
-    data = db.get_url_data_by_name(conn, url)
-    if url not in data:
+    if db.get_url_by_name(conn, url) is None:
         flash(ADD_URL_MESSAGES['success'], 'success')
         db.insert_url(conn, url)
         db.commit(conn)
     else:
         flash(ADD_URL_MESSAGES['warning'], 'warning')
-    url_id = db.get_url_data_by_name(conn, url).id
+    url_id = db.get_url_by_name(conn, url).id
     db.close_connection(conn)
-    return redirect(url_for('show_url_data', url_id=url_id), 302)
+    return redirect(url_for('show_url', url_id=url_id), 302)
 
 
 @app.get('/urls')
-def show_urls_list():
+def show_urls():
     conn = db.get_connection(DATABASE_URL)
-    urls_list = db.get_urls_list(conn)
+    urls = db.get_urls(conn)
     db.close_connection(conn)
     return render_template(
         'urls.html',
-        urls=urls_list,
+        urls=urls,
     )
 
 
 @app.get('/urls/<url_id>')
-def show_url_data(url_id):
+def show_url(url_id):
     conn = db.get_connection(DATABASE_URL)
-    url_data = db.get_url_data_by_id(conn, url_id)
+    url = db.get_url_by_id(conn, url_id)
     checks = db.get_url_checks(conn, url_id)
     db.close_connection(conn)
     return render_template(
         'url.html',
         id=url_id,
-        name=url_data.name,
-        created_at=url_data.created_at.date(),
+        name=url.name,
+        created_at=url.created_at.date(),
         checks=checks,
     )
 
@@ -93,13 +92,13 @@ def show_url_data(url_id):
 @app.post('/urls/<url_id>/checks')
 def check_url(url_id):
     conn = db.get_connection(DATABASE_URL)
-    data = db.get_url_data_by_id(conn, url_id)
+    url = db.get_url_by_id(conn, url_id)
     try:
-        url = data.name
-        response = get(url)
+        url_name = url.name
+        response = requests.get(url_name)
         response.raise_for_status()
         h1, title, description = parse_page(response.text)
-        db.insert_check_data(
+        db.insert_url_check(
             conn,
             {
                 'url_id': url_id,
@@ -114,4 +113,4 @@ def check_url(url_id):
     except RequestException:
         flash(CHECK_URL_MESSAGES['danger'], 'danger')
     db.close_connection(conn)
-    return redirect(url_for('show_url_data', url_id=url_id), 302)
+    return redirect(url_for('show_url', url_id=url_id), 302)
