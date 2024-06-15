@@ -1,10 +1,6 @@
-import datetime
 import psycopg2
 import psycopg2.extras
-from collections import namedtuple
-
-UrlLastCheck = namedtuple('UrlLastCheck',
-                          ['id', 'name', 'status_code', 'created_at'])
+from page_analyzer.tools import get_last_checks_for_urls
 
 
 def commit(conn):
@@ -98,36 +94,6 @@ def insert_url_check(conn, url_check):
              url_check['title'],
              url_check['description'])
         )
-
-
-def get_created_at(record):
-    return record.created_at or datetime.datetime.min
-
-
-def get_checks_by_url(checks, url):
-    return [rec for rec in checks
-            if rec.url_id == url.id]
-
-
-def get_last_checks_for_urls(urls, checks):
-    if not urls:
-        return
-    if not checks:
-        return urls
-
-    urls_last_checks = []
-    for url in urls:
-        last_check = None
-        if checks_by_url := get_checks_by_url(checks, url):
-            last_check = max(checks_by_url, key=get_created_at)
-        url_last_check = UrlLastCheck(
-            id=url.id,
-            name=url.name,
-            created_at=getattr(last_check, 'created_at', None),
-            status_code=getattr(last_check, 'status_code', ''),
-        )
-        urls_last_checks.append(url_last_check)
-    return urls_last_checks
 
 
 def get_urls(conn):

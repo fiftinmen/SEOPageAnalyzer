@@ -126,7 +126,7 @@ def check_url(url_id):
 
 
 @app.errorhandler(Exception)
-def internal_error(error):
+def handle_error(error):
     print(''.join(traceback.format_exception(*sys.exc_info())))
     status_code, messages = parse_error(error)
     return render_template(
