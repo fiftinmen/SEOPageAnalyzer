@@ -1,8 +1,18 @@
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+from http import HTTPStatus
 
 
 MAX_LENGTH = 255
+
+REDIRECTION_MESSAGE = "Перенаправляем на главную страницу."
+ERROR_MESSAGES = {
+    HTTPStatus.BAD_REQUEST: "Ваш запрос содержит ошибку.",
+    HTTPStatus.NOT_FOUND: "Страница не найдена.",
+    HTTPStatus.INTERNAL_SERVER_ERROR: "Кажется, что-то пошло не так.",
+    HTTPStatus.METHOD_NOT_ALLOWED: "Ваш запрос содержит ошибку.",
+    'WRONG_URL_ID': 'URL с таким id не существует.'
+}
 
 
 def parse_page(page):
@@ -21,3 +31,15 @@ def parse_page(page):
 def normalize_url(url):
     url_parts = urlparse(url)
     return f"{url_parts.scheme}://{url_parts.netloc}"
+
+
+def parse_error(error):
+    status_code = getattr(error, "code", HTTPStatus.INTERNAL_SERVER_ERROR)
+    status_code = getattr(status_code, "value", status_code)
+    description = getattr(error, "description", None)
+    messages = [ERROR_MESSAGES[status_code]]
+    if description in ERROR_MESSAGES:
+        messages.append(ERROR_MESSAGES[description])
+    messages.append(REDIRECTION_MESSAGE)
+    messages = ' '.join(messages)
+    return status_code, messages

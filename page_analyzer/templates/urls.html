@@ -17,13 +17,17 @@
       {% if urls %}
         {% for url in urls[-1::-1] %}
           <tr>
-            <td>{{ url['id'] }}</td>
-            <td><a href="{{ url_for('show_url', url_id=url['id']) }}">{{ url['name'] }}</a></td>
-            <td>{{ url['last_check_date'] }}</td>
-            <td>{{ url['status_code'] }}</td>
+            <td>{{ url.id }}</td>
+            <td><a href="{{ url_for('show_url', url_id=url.id) }}">{{ url.name }}</a></td>
+            <td>{% if url.created_at %} {{ url.created_at.date() }} {% endif %}</td>
+            <td>{{ url.status_code }}</td>
           </tr>
-          {% endfor %}
-        {% endif %}
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="4" class="text-center" >Список пуст</td>
+        </tr>
+      {% endif %}
     </tbody>
   </table>
 

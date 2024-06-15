@@ -16,16 +16,16 @@ import requests
 from requests.exceptions import RequestException
 import page_analyzer.db as db
 from dotenv import load_dotenv
-from page_analyzer.tools import parse_page, normalize_url
+from page_analyzer.tools import parse_page, normalize_url, parse_error
 
 
 load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-DATABASE_URL = os.getenv('DATABASE_URL')
+app.config['DATABASE_URL'] = os.getenv('DATABASE_URL')
 
-if not DATABASE_URL:
+if app.config['DATABASE_URL'] is None:
     raise ValueError("No DATABASE_URL set for Flask application")
 
 ADD_URL_MESSAGES = {
@@ -38,12 +38,6 @@ CHECK_URL_MESSAGES = {
     "danger": "Произошла ошибка при проверке"
 }
 REDIRECT_DELAY_SECONDS = 5
-REDIRECTION_MESSAGE = "Перенаправляем на главную страницу."
-ERROR_MESSAGES = {
-    HTTPStatus.BAD_REQUEST: "Ваш запрос содержит ошибку.",
-    HTTPStatus.NOT_FOUND: "Страница не найдена.",
-    HTTPStatus.INTERNAL_SERVER_ERROR: "Кажется, что-то пошло не так."
-}
 
 
 @app.route('/')
@@ -55,7 +49,7 @@ def index():
 
 @app.post('/urls')
 def add_url():
-    conn = db.get_connection(DATABASE_URL)
+    conn = db.get_connection(app.config['DATABASE_URL'])
     url = request.form.to_dict().get('url')
     url = normalize_url(url)
     if not validators.url(url):
@@ -77,7 +71,7 @@ def add_url():
 
 @app.get('/urls')
 def show_urls():
-    conn = db.get_connection(DATABASE_URL)
+    conn = db.get_connection(app.config['DATABASE_URL'])
     urls = db.get_urls(conn)
     db.close_connection(conn)
     return render_template(
@@ -88,11 +82,10 @@ def show_urls():
 
 @app.get('/urls/<url_id>')
 def show_url(url_id):
-    conn = db.get_connection(DATABASE_URL)
+    conn = db.get_connection(app.config['DATABASE_URL'])
     url = db.get_url_by_id(conn, url_id)
     if url is None:
-        error_message = {'message': 'URL с такими параметрами не существует.'}
-        abort(HTTPStatus.BAD_REQUEST, error_message)
+        abort(HTTPStatus.BAD_REQUEST, 'WRONG_URL_ID')
 
     checks = db.get_url_checks(conn, url_id)
     db.close_connection(conn)
@@ -105,11 +98,13 @@ def show_url(url_id):
 
 @app.post('/urls/<url_id>/checks')
 def check_url(url_id):
-    conn = db.get_connection(DATABASE_URL)
+    conn = db.get_connection(app.config['DATABASE_URL'])
     url = db.get_url_by_id(conn, url_id)
+    if url is None:
+        abort(HTTPStatus.BAD_REQUEST, 'WRONG_URL_ID')
+
     try:
-        url_name = url.name
-        response = requests.get(url_name)
+        response = requests.get(url.name)
         response.raise_for_status()
         h1, title, description = parse_page(response.text)
         db.insert_url_check(
@@ -133,12 +128,7 @@ def check_url(url_id):
 @app.errorhandler(Exception)
 def internal_error(error):
     print(''.join(traceback.format_exception(*sys.exc_info())))
-    status_code = getattr(error, "code", HTTPStatus.INTERNAL_SERVER_ERROR)
-    print(status_code)
-    messages = ' '.join([
-        ERROR_MESSAGES[status_code],
-        REDIRECTION_MESSAGE
-    ])
+    status_code, messages = parse_error(error)
     return render_template(
         'error.html',
         status_code=status_code,

@@ -23,7 +23,7 @@
   </div>
 
     <h2 class="mt-5 mb-3">Проверки</h2>
-    <form method="post" action="{{ url_for('check_url', url_id=id) }}">
+    <form method="post" action="{{ url_for('check_url', url_id=url.id) }}">
     <input type="submit" class="btn btn-primary" value="Запустить проверку">
     </form>
     
@@ -48,7 +48,7 @@
         <td>{{ check.h1 }}</td>
         <td>{{ check.title }}</td>
         <td>{{ check.description }}</td>
-        <td>{{ check.created_at.date() }}</td>
+        <td>{% if check.created_at %} {{ check.created_at.date() }} {% endif %}</td>
       </tr>
       {% endfor %}
     {% endif %}

@@ -1,6 +1,10 @@
 import datetime
 import psycopg2
 import psycopg2.extras
+from collections import namedtuple
+
+UrlLastCheck = namedtuple('UrlLastCheck',
+                          ['id', 'name', 'status_code', 'created_at'])
 
 
 def commit(conn):
@@ -96,42 +100,45 @@ def insert_url_check(conn, url_check):
         )
 
 
+def get_created_at(record):
+    return record.created_at or datetime.datetime.min
+
+
+def get_checks_by_url(checks, url):
+    return [rec for rec in checks
+            if rec.url_id == url.id]
+
+
+def get_last_checks_for_urls(urls, checks):
+    if not urls:
+        return
+    if not checks:
+        return urls
+
+    urls_last_checks = []
+    for url in urls:
+        last_check = None
+        if checks_by_url := get_checks_by_url(checks, url):
+            last_check = max(checks_by_url, key=get_created_at)
+        url_last_check = UrlLastCheck(
+            id=url.id,
+            name=url.name,
+            created_at=getattr(last_check, 'created_at', None),
+            status_code=getattr(last_check, 'status_code', ''),
+        )
+        urls_last_checks.append(url_last_check)
+    return urls_last_checks
+
+
 def get_urls(conn):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
+        cursor.execute('SELECT id, name FROM urls')
+        urls = cursor.fetchall()
         cursor.execute(
             """
-            SELECT
-                urls.id as url_id,
-                urls.name as name,
-                url_checks.status_code as status_code,
-                url_checks.created_at as created_at
-                FROM urls
-            LEFT JOIN url_checks
-            ON urls.id = url_checks.url_id
+            SELECT id, url_id, status_code, created_at
+            FROM url_checks
             """
         )
-        if cursor.rowcount < 1:
-            return
         checks = cursor.fetchall()
-        url_ids = {check.url_id for check in checks}
-        last_checks = []
-        for url_id in url_ids:
-            checks_by_url_id = [
-                rec for rec in checks
-                if rec.url_id == url_id
-            ]
-            last_checks_by_url_id = max(
-                checks_by_url_id, key=lambda check:
-                    check.created_at or datetime.datetime.min
-            )
-            last_checks.append(last_checks_by_url_id)
-        urls = [
-            {
-                'id': rec.url_id,
-                'name': rec.name,
-                'status_code': rec.status_code or '',
-                'last_check_date': rec.created_at or '',
-            }
-            for rec in last_checks
-        ]
-        return urls
+        return get_last_checks_for_urls(urls, checks)
