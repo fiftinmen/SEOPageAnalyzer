@@ -8,15 +8,15 @@
       <tbody>
         <tr>
           <td>ID</td>
-          <td>{{ id }}</td>
+          <td>{{ url.id }}</td>
         </tr>
         <tr>
           <td>Имя</td>
-          <td>{{ name }}</td>
+          <td>{{ url.name }}</td>
         </tr>
         <tr>
           <td>Дата создания</td>
-          <td>{{ created_at }}</td>
+          <td>{{ url.created_at }}</td>
         </tr>
       </tbody>
     </table>
@@ -43,12 +43,12 @@
     {% if checks %}
       {% for check in checks[-1::-1] %}
       <tr>
-        <td>{{ check[0] }}</td>
-        <td>{{ check[1] }}</td>
-        <td>{{ check[2] }}</td>
-        <td>{{ check[3] }}</td>
-        <td>{{ check[4] }}</td>
-        <td>{{ check[5].date() }}</td>
+        <td>{{ check.id }}</td>
+        <td>{{ check.status_code }}</td>
+        <td>{{ check.h1 }}</td>
+        <td>{{ check.title }}</td>
+        <td>{{ check.description }}</td>
+        <td>{{ check.created_at.date() }}</td>
       </tr>
       {% endfor %}
     {% endif %}

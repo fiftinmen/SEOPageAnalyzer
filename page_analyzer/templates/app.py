@@ -4,12 +4,9 @@ from flask import (
     request,
     flash,
     redirect,
-    url_for,
-    abort
+    url_for
 )
-from http import HTTPStatus
-import sys
-import traceback
+from werkzeug.exceptions import HTTPException
 import os
 import validators
 import requests
@@ -22,7 +19,6 @@ from page_analyzer.tools import parse_page, normalize_url
 load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 if not DATABASE_URL:
@@ -36,13 +32,6 @@ ADD_URL_MESSAGES = {
 CHECK_URL_MESSAGES = {
     "success": "Страница успешно проверена",
     "danger": "Произошла ошибка при проверке"
-}
-REDIRECT_DELAY_SECONDS = 5
-REDIRECTION_MESSAGE = "Перенаправляем на главную страницу."
-ERROR_MESSAGES = {
-    HTTPStatus.BAD_REQUEST: "Ваш запрос содержит ошибку.",
-    HTTPStatus.NOT_FOUND: "Страница не найдена.",
-    HTTPStatus.INTERNAL_SERVER_ERROR: "Кажется, что-то пошло не так."
 }
 
 
@@ -72,7 +61,7 @@ def add_url():
         flash(ADD_URL_MESSAGES['warning'], 'warning')
     url_id = db.get_url_by_name(conn, url).id
     db.close_connection(conn)
-    return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
+    return redirect(url_for('show_url', url_id=url_id), 302)
 
 
 @app.get('/urls')
@@ -91,14 +80,14 @@ def show_url(url_id):
     conn = db.get_connection(DATABASE_URL)
     url = db.get_url_by_id(conn, url_id)
     if url is None:
-        error_message = {'message': 'URL с такими параметрами не существует.'}
-        abort(HTTPStatus.BAD_REQUEST, error_message)
-
+        return
     checks = db.get_url_checks(conn, url_id)
     db.close_connection(conn)
     return render_template(
         'url.html',
-        url=url,
+        id=url_id,
+        name=url.name,
+        created_at=url.created_at.date(),
         checks=checks,
     )
 
@@ -107,6 +96,8 @@ def show_url(url_id):
 def check_url(url_id):
     conn = db.get_connection(DATABASE_URL)
     url = db.get_url_by_id(conn, url_id)
+    if url is None:
+        return
     try:
         url_name = url.name
         response = requests.get(url_name)
@@ -127,22 +118,15 @@ def check_url(url_id):
     except RequestException:
         flash(CHECK_URL_MESSAGES['danger'], 'danger')
     db.close_connection(conn)
-    return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
+    return redirect(url_for('show_url', url_id=url_id), 302)
 
 
-@app.errorhandler(Exception)
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
 def internal_error(error):
-    print(''.join(traceback.format_exception(*sys.exc_info())))
-    status_code = getattr(error, "code", HTTPStatus.INTERNAL_SERVER_ERROR)
-    print(status_code)
-    messages = ' '.join([
-        ERROR_MESSAGES[status_code],
-        REDIRECTION_MESSAGE
-    ])
-    return render_template(
-        'error.html',
-        status_code=status_code,
-        messages=messages
-    ), HTTPStatus.INTERNAL_SERVER_ERROR, {
-        "Refresh": f"{REDIRECT_DELAY_SECONDS}; url={url_for('index')}"
-    }
+    # now you're handling non-HTTP exceptions only
+    return render_template("500.html", error=error), 500

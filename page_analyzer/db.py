@@ -1,3 +1,4 @@
+import datetime
 import psycopg2
 import psycopg2.extras
 
@@ -50,7 +51,7 @@ def get_url_by_name(conn, value):
             """,
             (value,)
         )
-        return cursor.fetchone() if cursor.rowcount > 0 else None
+        return cursor.fetchone()
 
 
 def get_url_by_id(conn, value):
@@ -62,7 +63,7 @@ def get_url_by_id(conn, value):
             """,
             (value,)
         )
-        return cursor.fetchone() if cursor.rowcount > 0 else ['']
+        return cursor.fetchone()
 
 
 def insert_url(conn, url):
@@ -120,17 +121,16 @@ def get_urls(conn):
                 if rec.url_id == url_id
             ]
             last_checks_by_url_id = max(
-                checks_by_url_id, key=lambda check: check.created_at
+                checks_by_url_id, key=lambda check:
+                    check.created_at or datetime.datetime.min
             )
             last_checks.append(last_checks_by_url_id)
         urls = [
             {
                 'id': rec.url_id,
                 'name': rec.name,
-                'status_code': rec.status_code if rec.status_code
-                is not None else '',
-                'last_check_date': rec.created_at.date() if rec.created_at
-                is not None else ''
+                'status_code': rec.status_code or '',
+                'last_check_date': rec.created_at or '',
             }
             for rec in last_checks
         ]
