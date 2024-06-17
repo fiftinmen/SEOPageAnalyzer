@@ -44,4 +44,3 @@ def parse_error(error):
     messages.append(REDIRECTION_MESSAGE)
     messages = ' '.join(messages)
     return status_code, messages
-
