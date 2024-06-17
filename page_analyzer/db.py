@@ -1,7 +1,6 @@
 import psycopg2
 import psycopg2.extras
 from collections import namedtuple
-import datetime
 
 UrlLastCheck = namedtuple('UrlLastCheck',
                           ['id', 'name', 'status_code', 'created_at'])
@@ -91,15 +90,6 @@ def insert_url_check(conn, url_check):
         )
 
 
-def get_created_at(record):
-    return record.created_at or datetime.datetime.min
-
-
-def get_checks_by_url(checks, url):
-    return [rec for rec in checks
-            if rec.url_id == url.id]
-
-
 def get_urls(conn):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute('SELECT id, name FROM urls')
@@ -109,8 +99,9 @@ def get_urls(conn):
 
         cursor.execute(
             """
-            SELECT id, url_id, status_code, created_at
+            SELECT DISTINCT id, url_id, status_code, created_at
             FROM url_checks
+            ORDER BY created_at DESC
             """
         )
         checks = cursor.fetchall()
@@ -120,8 +111,10 @@ def get_urls(conn):
         urls_last_checks = []
         for url in urls:
             last_check = None
-            if checks_by_url := get_checks_by_url(checks, url):
-                last_check = max(checks_by_url, key=get_created_at)
+            for check in checks:
+                if check.url_id == url.id:
+                    last_check = check
+                    checks.remove(last_check)
             url_last_check = UrlLastCheck(
                 id=url.id,
                 name=url.name,
