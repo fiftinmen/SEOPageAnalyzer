@@ -28,15 +28,9 @@ app.config['DATABASE_URL'] = os.getenv('DATABASE_URL')
 if app.config['DATABASE_URL'] is None:
     raise ValueError("No DATABASE_URL set for Flask application")
 
-ADD_URL_MESSAGES = {
-    "success": "Страница успешно добавлена",
-    "warning": "Страница уже существует",
-    "danger": "Некорректный URL"
-}
-CHECK_URL_MESSAGES = {
-    "success": "Страница успешно проверена",
-    "danger": "Произошла ошибка при проверке"
-}
+INCORRECT_URL_MESSAGE = "Некорректный URL", "danger"
+URL_CHECK_SUCCESS = "Страница успешно проверена", "success"
+URL_CHECK_FAIL = "Произошла ошибка при проверке", "danger"
 REDIRECT_DELAY_SECONDS = 5
 
 
@@ -53,7 +47,7 @@ def add_url():
         url = request.form.to_dict().get('url')
         url = normalize_url(url)
         if not validators.url(url):
-            flash(ADD_URL_MESSAGES['danger'], "danger")
+            flash(*INCORRECT_URL_MESSAGE)
             return render_template(
                 'index.html',
             ), 422
@@ -110,9 +104,10 @@ def check_url(url_id):
                 }
             )
             db.commit(conn)
-            flash(CHECK_URL_MESSAGES['success'], 'success')
+            message = URL_CHECK_SUCCESS
         except RequestException:
-            flash(CHECK_URL_MESSAGES['danger'], 'danger')
+            message = URL_CHECK_FAIL
+        flash(*message)
         return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
 
 
