@@ -58,13 +58,13 @@ def add_url():
         return render_template(
             'index.html',
         ), 422
-    if db.get_url_by_name(conn, url) is None:
+    if db.get_url(conn, name=url) is None:
         db.insert_url(conn, url)
         db.commit(conn)
         flash(ADD_URL_MESSAGES['success'], 'success')
     else:
         flash(ADD_URL_MESSAGES['warning'], 'warning')
-    url_id = db.get_url_by_name(conn, url).id
+    url_id = db.get_url(conn, name=url).id
     db.close_connection(conn)
     return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
 
@@ -83,7 +83,7 @@ def show_urls():
 @app.get('/urls/<url_id>')
 def show_url(url_id):
     conn = db.get_connection(app.config['DATABASE_URL'])
-    url = db.get_url_by_id(conn, url_id)
+    url = db.get_url(conn, id=url_id)
     if url is None:
         abort(HTTPStatus.BAD_REQUEST, 'WRONG_URL_ID')
 
@@ -99,7 +99,7 @@ def show_url(url_id):
 @app.post('/urls/<url_id>/checks')
 def check_url(url_id):
     conn = db.get_connection(app.config['DATABASE_URL'])
-    url = db.get_url_by_id(conn, url_id)
+    url = db.get_url(conn, id=url_id)
     if url is None:
         abort(HTTPStatus.BAD_REQUEST, 'WRONG_URL_ID')
 

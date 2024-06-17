@@ -36,15 +36,11 @@ def get_url_checks(conn, url_id):
         return cursor.fetchall()
 
 
-def get_url_by_name(conn, value):
+def get_url(conn, **kwargs):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT * FROM urls
-            WHERE name = %s
-            """,
-            (value,)
-        )
+        column, value = next(iter(kwargs.items()))
+        cursor.execute(f"SELECT * FROM urls WHERE {column} = %s",
+                       (value,))
         return cursor.fetchone()
 
 
