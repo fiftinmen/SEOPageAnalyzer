@@ -107,19 +107,17 @@ def get_urls(conn):
         checks = cursor.fetchall()
         if not checks:
             return urls
-
+        checks_dict = {check.url_id: check for check in checks}
+        urls_dict = {url.id: url.name for url in urls}
         urls_last_checks = []
-        for url in urls:
-            last_check = None
-            for check in checks:
-                if check.url_id == url.id:
-                    last_check = check
-                    checks.remove(last_check)
+        for url_id, url_name in urls_dict.items():
             url_last_check = UrlLastCheck(
-                id=url.id,
-                name=url.name,
-                created_at=getattr(last_check, 'created_at', None),
-                status_code=getattr(last_check, 'status_code', ''),
+                id=url_id,
+                name=url_name,
+                created_at=getattr(checks_dict.get(url_id, {}),
+                                   'created_at', None),
+                status_code=getattr(checks_dict.get(url_id, {}),
+                                    'status_code', ''),
             )
             urls_last_checks.append(url_last_check)
         return urls_last_checks

@@ -59,9 +59,9 @@ def add_url():
             'index.html',
         ), 422
     if db.get_url_by_name(conn, url) is None:
-        flash(ADD_URL_MESSAGES['success'], 'success')
         db.insert_url(conn, url)
         db.commit(conn)
+        flash(ADD_URL_MESSAGES['success'], 'success')
     else:
         flash(ADD_URL_MESSAGES['warning'], 'warning')
     url_id = db.get_url_by_name(conn, url).id
@@ -133,6 +133,4 @@ def handle_error(error):
         'error.html',
         status_code=status_code,
         messages=messages
-    ), HTTPStatus.INTERNAL_SERVER_ERROR, {
-        "Refresh": f"{REDIRECT_DELAY_SECONDS}; url={url_for('index')}"
-    }
+    ), HTTPStatus.INTERNAL_SERVER_ERROR
