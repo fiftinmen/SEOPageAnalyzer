@@ -15,15 +15,6 @@ def close_connection(conn):
     conn.close()
 
 
-def execute(conn, query, *args):
-    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
-        cursor.execute(
-            query,
-            (*args,)
-        )
-        return cursor.fetchall() if cursor.rowcount > 0 else None
-
-
 def get_url_checks(conn, url_id):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         cursor.execute(
