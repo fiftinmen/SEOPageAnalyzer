@@ -49,80 +49,71 @@ def index():
 
 @app.post('/urls')
 def add_url():
-    conn = db.get_connection(app.config['DATABASE_URL'])
-    url = request.form.to_dict().get('url')
-    url = normalize_url(url)
-    if not validators.url(url):
-        flash(ADD_URL_MESSAGES['danger'], "danger")
-        db.close_connection(conn)
-        return render_template(
-            'index.html',
-        ), 422
-    if db.get_url(conn, name=url) is None:
-        db.insert_url(conn, url)
+    with db.get_connection(app.config['DATABASE_URL']) as conn:
+        url = request.form.to_dict().get('url')
+        url = normalize_url(url)
+        if not validators.url(url):
+            flash(ADD_URL_MESSAGES['danger'], "danger")
+            return render_template(
+                'index.html',
+            ), 422
+        flash(*db.insert_url(conn, url))
         db.commit(conn)
-        flash(ADD_URL_MESSAGES['success'], 'success')
-    else:
-        flash(ADD_URL_MESSAGES['warning'], 'warning')
-    url_id = db.get_url(conn, name=url).id
-    db.close_connection(conn)
-    return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
+        url_id = db.get_url(conn, name=url).id
+        return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
 
 
 @app.get('/urls')
 def show_urls():
-    conn = db.get_connection(app.config['DATABASE_URL'])
-    urls = db.get_urls(conn)
-    db.close_connection(conn)
-    return render_template(
-        'urls.html',
-        urls=urls,
-    )
+    with db.get_connection(app.config['DATABASE_URL']) as conn:
+        urls = db.get_urls(conn)
+        return render_template(
+            'urls.html',
+            urls=urls,
+        )
 
 
 @app.get('/urls/<url_id>')
 def show_url(url_id):
-    conn = db.get_connection(app.config['DATABASE_URL'])
-    url = db.get_url(conn, id=url_id)
-    if url is None:
-        abort(HTTPStatus.BAD_REQUEST, 'WRONG_URL_ID')
+    with db.get_connection(app.config['DATABASE_URL']) as conn:
+        url = db.get_url(conn, id=url_id)
+        if url is None:
+            abort(HTTPStatus.BAD_REQUEST, 'WRONG_URL_ID')
 
-    checks = db.get_url_checks(conn, url_id)
-    db.close_connection(conn)
-    return render_template(
-        'url.html',
-        url=url,
-        checks=checks,
-    )
+        checks = db.get_url_checks(conn, url_id)
+        return render_template(
+            'url.html',
+            url=url,
+            checks=checks,
+        )
 
 
 @app.post('/urls/<url_id>/checks')
 def check_url(url_id):
-    conn = db.get_connection(app.config['DATABASE_URL'])
-    url = db.get_url(conn, id=url_id)
-    if url is None:
-        abort(HTTPStatus.BAD_REQUEST, 'WRONG_URL_ID')
+    with db.get_connection(app.config['DATABASE_URL']) as conn:
+        url = db.get_url(conn, id=url_id)
+        if url is None:
+            abort(HTTPStatus.BAD_REQUEST, 'WRONG_URL_ID')
 
-    try:
-        response = requests.get(url.name)
-        response.raise_for_status()
-        h1, title, description = parse_page(response.text)
-        db.insert_url_check(
-            conn,
-            {
-                'url_id': url_id,
-                'status_code': response.status_code,
-                'h1': h1,
-                'title': title,
-                'description': description
-            }
-        )
-        db.commit(conn)
-        flash(CHECK_URL_MESSAGES['success'], 'success')
-    except RequestException:
-        flash(CHECK_URL_MESSAGES['danger'], 'danger')
-    db.close_connection(conn)
-    return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
+        try:
+            response = requests.get(url.name)
+            response.raise_for_status()
+            h1, title, description = parse_page(response.text)
+            db.insert_url_check(
+                conn,
+                {
+                    'url_id': url_id,
+                    'status_code': response.status_code,
+                    'h1': h1,
+                    'title': title,
+                    'description': description
+                }
+            )
+            db.commit(conn)
+            flash(CHECK_URL_MESSAGES['success'], 'success')
+        except RequestException:
+            flash(CHECK_URL_MESSAGES['danger'], 'danger')
+        return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
 
 
 @app.errorhandler(Exception)

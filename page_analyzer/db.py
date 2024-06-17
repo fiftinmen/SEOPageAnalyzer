@@ -1,9 +1,12 @@
 import psycopg2
 import psycopg2.extras
+from psycopg2.errors import UniqueViolation
 from collections import namedtuple
 
 UrlLastCheck = namedtuple('UrlLastCheck',
                           ['id', 'name', 'status_code', 'created_at'])
+SUCCESSFUL_URL_INSERT = 'Страница успешно добавлена'
+URL_ALREADY_EXIST = 'Страница уже существует'
 
 
 def commit(conn):
@@ -58,11 +61,15 @@ def get_url_by_id(conn, value):
 
 def insert_url(conn, url):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            INSERT INTO urls (name, created_at)
-            VALUES (%s, NOW())
-            """, (url,))
+        try:
+            cursor.execute(
+                """
+                INSERT INTO urls (name, created_at)
+                VALUES (%s, NOW())
+                """, (url,))
+            return SUCCESSFUL_URL_INSERT, 'success'
+        except UniqueViolation:
+            return URL_ALREADY_EXIST, 'warning'
 
 
 def insert_url_check(conn, url_check):
