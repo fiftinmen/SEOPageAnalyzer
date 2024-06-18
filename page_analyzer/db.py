@@ -5,8 +5,6 @@ from collections import namedtuple
 
 UrlLastCheck = namedtuple('UrlLastCheck',
                           ['id', 'name', 'status_code', 'created_at'])
-SUCCESSFUL_URL_INSERT = 'Страница успешно добавлена'
-URL_ALREADY_EXIST = 'Страница уже существует'
 
 
 def commit(conn):
@@ -67,9 +65,11 @@ def insert_url(conn, url):
                 INSERT INTO urls (name, created_at)
                 VALUES (%s, NOW())
                 """, (url,))
-            return SUCCESSFUL_URL_INSERT, 'success'
+            error = None
         except UniqueViolation:
-            return URL_ALREADY_EXIST, 'warning'
+            error = UniqueViolation
+        cursor.execute("SELECT id FROM urls WHERE name = %s", (url,))
+        return error, cursor.fetchone()
 
 
 def insert_url_check(conn, url_check):
