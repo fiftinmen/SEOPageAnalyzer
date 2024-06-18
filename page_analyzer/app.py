@@ -31,7 +31,6 @@ if app.config['DATABASE_URL'] is None:
 INCORRECT_URL_MESSAGE = "Некорректный URL", "danger"
 URL_CHECK_SUCCESS = "Страница успешно проверена", "success"
 URL_CHECK_FAIL = "Произошла ошибка при проверке", "danger"
-REDIRECT_DELAY_SECONDS = 5
 
 
 @app.route('/')
