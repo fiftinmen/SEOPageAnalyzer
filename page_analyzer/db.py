@@ -46,9 +46,9 @@ def get_url(conn, **kwargs):
         return cursor.fetchone()
 
 
-def insert_url(conn, url):
+def insert_url(conn, url_name):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
-        if url := get_url(conn, name=url):
+        if url := get_url(conn, name=url_name):
             return URL_ALREADY_EXIST, url
 
         cursor.execute(
@@ -56,7 +56,7 @@ def insert_url(conn, url):
             INSERT INTO urls (name, created_at)
             VALUES (%s, NOW())
             RETURNING id
-            """, (url,))
+            """, (url_name,))
         return URL_INSERT_SUCCEEDED, cursor.fetchone()
 
 
