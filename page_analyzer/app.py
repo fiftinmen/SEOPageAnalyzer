@@ -45,18 +45,18 @@ def index():
 @app.post('/urls')
 def add_url():
     with db.get_connection(app.config['DATABASE_URL']) as conn:
-        url = request.form.to_dict().get('url')
-        url = normalize_url(url)
-        if not validators.url(url):
+        url_name = request.form.to_dict().get('url')
+        url_name = normalize_url(url_name)
+        if not validators.url(url_name):
             flash(*INCORRECT_URL_MESSAGE)
             return render_template(
                 'index.html',
             ), 422
-        error, url_id = db.insert_url(conn, url)
+        error, url = db.insert_url(conn, url_name)
         db.commit(conn)
         message = URL_ALREADY_EXIST if error else SUCCESSFUL_URL_INSERT
         flash(*message)
-        return redirect(url_for('show_url', url_id=url_id), HTTPStatus.FOUND)
+        return redirect(url_for('show_url', url_id=url.id), HTTPStatus.FOUND)
 
 
 @app.get('/urls')

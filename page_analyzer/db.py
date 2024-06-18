@@ -45,18 +45,6 @@ def get_url(conn, **kwargs):
         return cursor.fetchone()
 
 
-def get_url_by_id(conn, value):
-    with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
-        cursor.execute(
-            """
-            SELECT * FROM urls
-            WHERE id = %s
-            """,
-            (value,)
-        )
-        return cursor.fetchone()
-
-
 def insert_url(conn, url):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
         try:
@@ -64,12 +52,12 @@ def insert_url(conn, url):
                 """
                 INSERT INTO urls (name, created_at)
                 VALUES (%s, NOW())
+                RETURNING id
                 """, (url,))
-            error = None
+            return None, cursor.fetchone()
         except UniqueViolation:
-            error = UniqueViolation
-        cursor.execute("SELECT id FROM urls WHERE name = %s", (url,))
-        return error, cursor.fetchone()
+            conn.rollback()
+            return UniqueViolation, get_url(conn, name=url)
 
 
 def insert_url_check(conn, url_check):
@@ -84,6 +72,7 @@ def insert_url_check(conn, url_check):
                 description,
                 created_at)
             VALUES (%s, %s, %s, %s, %s, NOW())
+            RETURNING id
             """,
             (url_check['url_id'],
              url_check['status_code'],
