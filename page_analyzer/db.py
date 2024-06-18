@@ -8,6 +8,7 @@ UrlLastCheck = namedtuple('UrlLastCheck',
 URL_INSERT_SUCCEEDED = 201
 URL_ALREADY_EXIST = 501
 
+
 def commit(conn):
     conn.commit()
 

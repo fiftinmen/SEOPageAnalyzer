@@ -37,6 +37,7 @@ DB_CODE_TRANSLATION = {
     db.URL_ALREADY_EXIST: ('Страница уже существует', 'warning'),
 }
 
+
 @app.route('/')
 def index():
     return render_template(
