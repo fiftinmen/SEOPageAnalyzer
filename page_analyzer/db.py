@@ -46,18 +46,19 @@ def get_url(conn, **kwargs):
         return cursor.fetchone()
 
 
-def insert_url(conn, url_name):
+def insert_url(conn, url):
     with conn.cursor(cursor_factory=psycopg2.extras.NamedTupleCursor) as cursor:
-        if url := get_url(conn, name=url_name):
-            return URL_ALREADY_EXIST, url
-
-        cursor.execute(
-            """
-            INSERT INTO urls (name, created_at)
-            VALUES (%s, NOW())
-            RETURNING id
-            """, (url_name,))
-        return URL_INSERT_SUCCEEDED, cursor.fetchone()
+        try:
+            cursor.execute(
+                """
+                INSERT INTO urls (name, created_at)
+                VALUES (%s, NOW())
+                RETURNING id
+                """, (url,))
+            return URL_INSERT_SUCCEEDED, cursor.fetchone()
+        except UniqueViolation:
+            conn.rollback()
+            return URL_ALREADY_EXIST, get_url(conn, name=url)
 
 
 def insert_url_check(conn, url_check):
