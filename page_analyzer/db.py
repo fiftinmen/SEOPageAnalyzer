@@ -5,7 +5,8 @@ from collections import namedtuple
 
 UrlLastCheck = namedtuple('UrlLastCheck',
                           ['id', 'name', 'status_code', 'created_at'])
-
+URL_INSERT_SUCCEEDED = 201
+URL_ALREADY_EXIST = 501
 
 def commit(conn):
     conn.commit()
@@ -54,10 +55,10 @@ def insert_url(conn, url):
                 VALUES (%s, NOW())
                 RETURNING id
                 """, (url,))
-            return None, cursor.fetchone()
+            return URL_INSERT_SUCCEEDED, cursor.fetchone()
         except UniqueViolation:
             conn.rollback()
-            return UniqueViolation, get_url(conn, name=url)
+            return URL_ALREADY_EXIST, get_url(conn, name=url)
 
 
 def insert_url_check(conn, url_check):

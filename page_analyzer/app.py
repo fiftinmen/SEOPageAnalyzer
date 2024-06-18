@@ -31,9 +31,11 @@ if app.config['DATABASE_URL'] is None:
 INCORRECT_URL_MESSAGE = "Некорректный URL", "danger"
 URL_CHECK_SUCCESS = "Страница успешно проверена", "success"
 URL_CHECK_FAIL = "Произошла ошибка при проверке", "danger"
-SUCCESSFUL_URL_INSERT = 'Страница успешно добавлена', 'success'
-URL_ALREADY_EXIST = 'Страница уже существует', 'warning'
 
+DB_CODE_TRANSLATION = {
+    db.URL_INSERT_SUCCEEDED: ('Страница успешно добавлена', 'success'),
+    db.URL_ALREADY_EXIST: ('Страница уже существует', 'warning'),
+}
 
 @app.route('/')
 def index():
@@ -52,10 +54,9 @@ def add_url():
             return render_template(
                 'index.html',
             ), 422
-        error, url = db.insert_url(conn, url_name)
+        db_code, url = db.insert_url(conn, url_name)
         db.commit(conn)
-        message = URL_ALREADY_EXIST if error else SUCCESSFUL_URL_INSERT
-        flash(*message)
+        flash(*DB_CODE_TRANSLATION[db_code])
         return redirect(url_for('show_url', url_id=url.id), HTTPStatus.FOUND)
 
 
